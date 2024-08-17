@@ -37,8 +37,34 @@ PreApproach::PreApproach(const rclcpp::NodeOptions &options)
           "odom", 10, std::bind(&PreApproach::odometry_callback, this, _1))},
       client_{this->create_client<GoToLoading>("approach_shelf")},
       motion_{Motion::FORWARD}, moving_forward_{true}, turning_{false},
-      have_odom_{false}, have_scan_{false}, laser_scanner_parametrized_{false},
-      obstacle_{OBSTACLE}, degrees_{DEGREES} {
+      have_odom_{false}, have_scan_{false}, laser_scanner_parametrized_{false} {
+  obstacle_ = OBSTACLE;
+  degrees_ = DEGREES;
+  auto logger = this->get_logger();
+
+  // Set the log level
+  std::map<int, std::string> levels = {
+      {RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_DEBUG, "DEBUG"},
+      {RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_INFO, "INFO"},
+      {RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_WARN, "WARN"},
+      {RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_ERROR, "ERROR"},
+      {RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_FATAL, "FATAL"}};
+
+  // Set the log severity level here
+  int level = RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_INFO;
+
+  if (rcutils_logging_set_logger_level(logger.get_name(), level) !=
+      RCUTILS_RET_OK) {
+    RCLCPP_ERROR(logger, "Failed to set logger level '%s' for %s.",
+                 (levels[level]).c_str(), this->get_name());
+  } else {
+    RCLCPP_INFO(logger, "Successfully set logger level '%s' for %s.",
+                (levels[level]).c_str(), this->get_name());
+  }
+
+  RCLCPP_DEBUG(this->get_logger(), "obstacle_ = %f, degrees+ = %f", obstacle_,
+               degrees_);
+
   wait_for_laser_scan_publisher();
   wait_for_odometery_publisher();
 }
