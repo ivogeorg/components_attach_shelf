@@ -492,8 +492,8 @@ void AttachServer::listener_cb() {
     // listen for TF `odom`->`robot_front_laser_base_link`
     std::string parent_frame = odom_frame_;
     std::string child_frame = laser_frame_;
-    // RCLCPP_DEBUG(this->get_logger(), "Listening for `%s`->`%s`",
-    //              parent_frame.c_str(), child_frame.c_str());
+    RCLCPP_DEBUG(this->get_logger(), "Listening for `%s`->`%s`",
+                 parent_frame.c_str(), child_frame.c_str());
     try {
       odom_laser_t_ = tf_buffer_->lookupTransform(parent_frame, child_frame,
                                                   tf2::TimePointZero);
@@ -576,7 +576,7 @@ void AttachServer::listener_cb() {
 void AttachServer::broadcaster_cb() {
   if (broadcast_odom_cart_) {
     // broadcast TF `odom`->`cart_frame`
-    // RCLCPP_DEBUG(this->get_logger(), "Publishing cart_frame");
+    RCLCPP_DEBUG(this->get_logger(), "Publishing cart_frame");
     odom_cart_t_.header.stamp = this->get_clock()->now();
     tf_broadcaster_->sendTransform(odom_cart_t_);
   } // else no-op

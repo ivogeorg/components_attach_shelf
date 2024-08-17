@@ -14,11 +14,13 @@ def generate_launch_description():
                 ComposableNode(
                     package='components_attach_shelf',
                     plugin='my_components::PreApproach',
-                    name='pre_approach'),
+                    name='pre_approach',
+                    parameters=[{'use_sim_time': True}]),
                 ComposableNode(
                     package='components_attach_shelf',
                     plugin='my_components::AttachServer',
-                    name='attach_server'),
+                    name='attach_server',                    
+                    parameters=[{'use_sim_time': True}]),
             ],
             output='screen',
     )
