@@ -69,7 +69,24 @@ ament_target_dependencies(attach_server
   "rosidl_default_generators"
   )
 rclcpp_components_register_nodes(attach_server "my_components::AttachServer")
-set(node_plugins "${node_plugins}my_components::PreApproach;$<TARGET_FILE:attach_server>\n")
+set(node_plugins "${node_plugins}my_components::AttachServer;$<TARGET_FILE:attach_server>\n")
+
+# attach_client
+add_library(attach_client SHARED src/attach_client.cpp)
+target_compile_definitions(attach_client PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(attach_client
+  "rclcpp"
+  "rclcpp_components"
+  "geometry_msgs"
+  "nav_msgs"
+  "std_msgs"
+  "sensor_msgs"
+  "tf2"
+  "tf2_ros"
+  "rosidl_default_generators"
+  )
+rclcpp_components_register_nodes(attach_client "my_components::AttachClient")
+set(node_plugins "${node_plugins}my_components::AttachClient;$<TARGET_FILE:attach_client>\n")
 
 # Get the typesupport target name
 rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
@@ -78,11 +95,13 @@ rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesup
 # NOTE: CMake, no keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
 target_link_libraries(pre_approach ${typesupport_target})
 target_link_libraries(attach_server ${typesupport_target})
+target_link_libraries(attach_client ${typesupport_target})
 
 # Install
 install(TARGETS
   pre_approach
   attach_server
+  attach_client
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
