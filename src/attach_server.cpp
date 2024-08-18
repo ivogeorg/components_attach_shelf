@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <string>
 #include <tuple>
 
 #include "components_attach_shelf/srv/go_to_loading.hpp"
@@ -18,6 +19,7 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/detail/odometry__struct.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/logging.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/subscription_options.hpp"
 #include "rclcpp/utilities.hpp"
@@ -88,7 +90,7 @@ AttachServer::AttachServer(const rclcpp::NodeOptions &options)
       {RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_FATAL, "FATAL"}};
 
   // Set the log severity level here
-  int level = RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_DEBUG;
+  int level = RCUTILS_LOG_SEVERITY::RCUTILS_LOG_SEVERITY_INFO;
 
   if (rcutils_logging_set_logger_level(logger.get_name(), level) !=
       RCUTILS_RET_OK) {
@@ -99,6 +101,9 @@ AttachServer::AttachServer(const rclcpp::NodeOptions &options)
                 (levels[level]).c_str(), this->get_name());
   }
   RCLCPP_INFO(this->get_logger(), "Server of /approach_shelf service started");
+  RCLCPP_DEBUG(this->get_logger(), "odom_frame_='%s'", odom_frame_.c_str());
+  RCLCPP_DEBUG(this->get_logger(), "laser_frame_='%s'", laser_frame_.c_str());
+  RCLCPP_DEBUG(this->get_logger(), "cart_frame_='%s'", cart_frame_.c_str());
 }
 
 /**
@@ -109,6 +114,8 @@ inline void AttachServer::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   last_laser_ = *msg;
   have_scan_ = true;
+  RCLCPP_DEBUG(this->get_logger(), "SCAN @ [%d:%d]",
+               last_laser_.header.stamp.sec, last_laser_.header.stamp.nanosec);
 }
 
 /**
@@ -122,6 +129,9 @@ AttachServer::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
       last_odom_.pose.pose.orientation.x, last_odom_.pose.pose.orientation.y,
       last_odom_.pose.pose.orientation.z, last_odom_.pose.pose.orientation.w);
   have_odom_ = true;
+  RCLCPP_DEBUG(this->get_logger(), "ODOM @ [%f:%f]",
+               last_odom_.pose.pose.position.x,
+               last_odom_.pose.pose.position.y);
 }
 
 /**
@@ -235,12 +245,30 @@ void AttachServer::service_callback(
   // `odom`->`robot_front_laser_base_link`
   listen_to_odom_laser_ = true; // Let the listner look up TF
   RCLCPP_INFO(this->get_logger(),
-              "Listening for `odom`->`robot_front_laser_base_link`");
-  rclcpp::sleep_for(3s); // Wait for the listener
+              "TF required `odom`->`robot_front_laser_base_link`");
+  //   rclcpp::sleep_for(3s); // Wait for the listener
 
   // Wait for odom_laser_t_ to be assigned by listener
+  RCLCPP_DEBUG(this->get_logger(), "listen_to_odom_laser_='%s'",
+               listen_to_odom_laser_ ? "true" : "false");
+  RCLCPP_DEBUG(this->get_logger(), "Waiting for listener...");
+
+  // DEBUG: This is hanging. Some problem with the listener!
   while (odom_laser_t_.header.frame_id.compare(odom_frame_) != 0)
     ;
+
+//   rclcpp::sleep_for(15s);
+//   if (odom_laser_t_.header.frame_id.compare(odom_frame_) != 0) {
+//     RCLCPP_ERROR(this->get_logger(), "Did not get TF 'odom_laser_t_");
+//     RCLCPP_DEBUG(this->get_logger(), "odom_laser_t_.header.stamp=%d sec",
+//                  odom_laser_t_.header.stamp.sec);
+//     RCLCPP_DEBUG(this->get_logger(), "odom_laser_t_.header.frame_id='%s'",
+//                  odom_laser_t_.header.frame_id.c_str());
+//     RCLCPP_DEBUG(this->get_logger(), "odom_laser_t_.child_frame_id='%s'",
+//                  odom_laser_t_.child_frame_id.c_str());
+//     response->complete = false;
+//     return;
+//   }
 
   RCLCPP_INFO(this->get_logger(),
               "Acquired TF `odom`->`robot_front_laser_base_link`");
@@ -485,7 +513,7 @@ std::vector<std::vector<int>> AttachServer::segment(std::vector<int> &v,
  * Used in creating `cart_frame` TF and first stage of the final approach
  */
 void AttachServer::listener_cb() {
-  // TODO
+  RCLCPP_DEBUG(this->get_logger(), "LISTEN");
 
   // 1. ODOM->LASER
   if (listen_to_odom_laser_) {
@@ -497,6 +525,17 @@ void AttachServer::listener_cb() {
     try {
       odom_laser_t_ = tf_buffer_->lookupTransform(parent_frame, child_frame,
                                                   tf2::TimePointZero);
+
+      // DEBUG
+      RCLCPP_DEBUG(this->get_logger(), "lookupTransoform returned:");
+      RCLCPP_DEBUG(this->get_logger(), "odom_laser_t_.header.stamp=%d sec",
+                   odom_laser_t_.header.stamp.sec);
+      RCLCPP_DEBUG(this->get_logger(), "odom_laser_t_.header.frame_id='%s'",
+                   odom_laser_t_.header.frame_id.c_str());
+      RCLCPP_DEBUG(this->get_logger(), "odom_laser_t_.child_frame_id='%s'",
+                   odom_laser_t_.child_frame_id.c_str());
+      // end DEBUG
+
     } catch (const tf2::TransformException &ex) {
       RCLCPP_ERROR(this->get_logger(), "Could not transform %s to %s: %s",
                    parent_frame.c_str(), child_frame.c_str(), ex.what());
@@ -574,6 +613,7 @@ void AttachServer::listener_cb() {
  * Used to broadcast `cart_frame` TF
  */
 void AttachServer::broadcaster_cb() {
+  RCLCPP_DEBUG(this->get_logger(), "BROADCAST");
   if (broadcast_odom_cart_) {
     // broadcast TF `odom`->`cart_frame`
     RCLCPP_DEBUG(this->get_logger(), "Publishing cart_frame");
@@ -740,3 +780,7 @@ AttachServer::solve_sas_triangle(double l_side, double r_side,
 #include "rclcpp_components/register_node_macro.hpp"
 
 RCLCPP_COMPONENTS_REGISTER_NODE(my_components::AttachServer)
+// After Humble, this might be an option:
+// RCLCPP_COMPONENTS_REGISTER_NODE(
+//     my_components::AttachServer,
+//     rclcpp::executors::MultiThreadedExecutor::make_shared())

@@ -16,6 +16,7 @@ using namespace std::chrono_literals;
 AttachClient::AttachClient(const rclcpp::NodeOptions &options)
     : Node("attach_client", options), client_{this->create_client<GoToLoading>(
                                           "approach_shelf")} {
+  RCLCPP_INFO(this->get_logger(), "'/approach_shelf' service client loaded");
 
   auto request = std::make_shared<GoToLoading::Request>();
   request->attach_to_shelf = true; // final approach will be performed
@@ -23,6 +24,7 @@ AttachClient::AttachClient(const rclcpp::NodeOptions &options)
   auto result_future = client_->async_send_request(
       request, std::bind(&AttachClient::service_response_callback, this,
                          std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Client sending request to service");
 }
 
 void AttachClient::service_response_callback(

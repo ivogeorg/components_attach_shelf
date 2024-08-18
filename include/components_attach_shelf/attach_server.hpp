@@ -9,6 +9,7 @@
  */
 
 #include <tuple>
+#include <string>
 
 #include "components_attach_shelf/srv/go_to_loading.hpp"
 #include "geometry_msgs/msg/detail/transform_stamped__struct.hpp"
