@@ -35,7 +35,6 @@ PreApproach::PreApproach(const rclcpp::NodeOptions &options)
           "scan", 10, std::bind(&PreApproach::laser_scan_callback, this, _1))},
       odom_sub_{this->create_subscription<nav_msgs::msg::Odometry>(
           "odom", 10, std::bind(&PreApproach::odometry_callback, this, _1))},
-      client_{this->create_client<GoToLoading>("approach_shelf")},
       motion_{Motion::FORWARD}, moving_forward_{true}, turning_{false},
       have_odom_{false}, have_scan_{false}, laser_scanner_parametrized_{false} {
   obstacle_ = OBSTACLE;
@@ -178,7 +177,7 @@ void PreApproach::on_timer() {
     break;
   case Motion::STOP:
     RCLCPP_INFO(this->get_logger(), "Pre-approach completed");
-    // If robot not stopped, stop it, else call service
+    // If robot not stopped, stop it
     if (abs(twist.linear.x) > 0.0 || abs(twist.angular.z) > 0.0) {
       twist.linear.x = 0.0;
       twist.angular.z = 0.0;
@@ -249,22 +248,6 @@ void PreApproach::wait_for_odometery_publisher() {
                  "'odom' topic publisher not available, waiting...");
   }
   RCLCPP_INFO(this->get_logger(), "'odom' topic publisher acquired");
-}
-
-void PreApproach::service_response_callback(
-    rclcpp::Client<GoToLoading>::SharedFuture future) {
-  auto status = future.wait_for(1s);
-  bool final_approach_complete = false;
-  if (status != std::future_status::ready) {
-    RCLCPP_INFO(this->get_logger(), "Service '/approach_shelf' in progress...");
-  } else {
-    RCLCPP_DEBUG(this->get_logger(),
-                 "Service '/approach_shelf' response received");
-    auto result = future.get();
-    final_approach_complete = result->complete;
-    RCLCPP_INFO(this->get_logger(), "Final approach complete: '%s'",
-                final_approach_complete ? "true" : "false");
-  }
 }
 
 } // namespace my_components
